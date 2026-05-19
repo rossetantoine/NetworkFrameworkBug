@@ -24,30 +24,11 @@ The legacy path (CFStream) does not show this slowdown on any tested computers.
 - Network setup: client and server on same LAN
 - Note: not reproducible on same machine via `localhost`
 
-## Repro Steps
-1. Start server implementation A (legacy CFStream / `CFWriteStreamWrite`).
-2. From a client machine, download a static binary and measure throughput:
-   ```bash
-   curl -L -k -o /dev/null http://<server-ip>:9090/random_250mb.bin
-   ```
-3. Start server implementation B (Network.framework / `nw_listener` + `nw_connection_send`) serving the same file/data.
-4. From a client machine, download and measure throughput:
-   ```bash
-   curl -L -k -o /dev/null https://<server-ip>:8080/public/random_250mb.bin
-   ```
-5. Repeat with application write chunk sizes set to:
-   - 64 KB
-   - 512 KB
-
 ## Expected Result
 Throughput with Network.framework should be in the same range as CFStream for equivalent workload and environment (or at least not regress by an order of magnitude).
 
 ## Actual Result
 Network.framework path shows severe throughput degradation on macOS 26 (M4), independent of application chunk size (64 KB or 512 KB), while CFStream path is fast.
-
-## Measured Example
-- Legacy (CFStream path): ~`15.1 MB/s`
-- Network.framework path: ~`340 KB/s`
 
 ## Notes
 - Chunk-size tuning did not resolve the issue.
@@ -78,18 +59,24 @@ Behavior in both modes:
 
 ### Build
 ```bash
-cd /Users/admin/NetworkFrameworkBug
-swift build -c release --build-path /Users/admin/NetworkFrameworkBug/build-artifacts/swift-build
+cd NetworkFrameworkBug
+swift build -c release --build-path NetworkFrameworkBug/build-artifacts/swift-build
 ```
 
 ### Run (Network.framework)
 ```bash
-/Users/admin/NetworkFrameworkBug/build-artifacts/swift-build/release/NetworkFrameworkThroughputRepro
+./NetworkFrameworkBug/build-artifacts/swift-build/release/NetworkFrameworkThroughputRepro
 ```
 
 ### Run (Legacy CFStream)
 ```bash
-/Users/admin/NetworkFrameworkBug/build-artifacts/swift-build/release/NetworkFrameworkThroughputRepro --legacyFramework
+./NetworkFrameworkBug/build-artifacts/swift-build/release/NetworkFrameworkThroughputRepro --legacyFramework
+```
+
+### Run (Network.framework)
+```bash
+sudo sysctl net.inet.tcp.tso=0
+./NetworkFrameworkBug/build-artifacts/swift-build/release/NetworkFrameworkThroughputRepro
 ```
 
 ### Quick Client Check
@@ -99,3 +86,36 @@ curl http://<server-ip>:9090/ -o /dev/null
 
 ### Open in Xcode
 Open `Package.swift` in Xcode.
+
+# Results
+
+##Test A : Network Framework
+Server side: ./NetworkFrameworkThroughputRepro
+Client side:
+admin@iMac ~ % curl http://10.17.18.119:9090/ -o /dev/null
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100 7682k    0 7682k    0     0  1011k      0 --:--:--  0:00:07 --:--:--  989k
+
+--> 989 kB/s : very low throughput, not saturating the 1 Gbps link (theoretical max ~125 MB/s)
+
+##Test B : CFStream (legacy framework)
+Server side: ./NetworkFrameworkThroughputRepro --legacyFramework
+Client side:
+admin@iMac ~ % curl http://10.17.18.119:9090/ -o /dev/null --legacyframework                                                                               
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  905M    0  905M    0     0   103M      0 --:--:--  0:00:08 --:--:--  106M
+
+--> 106 MB/s : much higher throughput, saturating the 1 Gbps link (theoretical max ~125 MB/s)
+
+
+##Test C : Network Framework with TSO disabled
+Server side: sudo sysctl net.inet.tcp.tso=0, then ./NetworkFrameworkThroughputRepro
+Client side:
+admin@iMac ~ % curl http://10.17.18.119:9090/ -o /dev/null
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  623M    0  623M    0     0   101M      0 --:--:--  0:00:06 --:--:--  105M
+
+--> 105 MB/s : much higher throughput, saturating the 1 Gbps link (theoretical max ~125 MB/s)
