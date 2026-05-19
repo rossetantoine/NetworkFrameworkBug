@@ -73,7 +73,7 @@ swift build -c release --build-path NetworkFrameworkBug/build-artifacts/swift-bu
 ./NetworkFrameworkBug/build-artifacts/swift-build/release/NetworkFrameworkThroughputRepro --legacyFramework
 ```
 
-### Run (Network.framework)
+### Run (Network.framework) with TSO disabled
 ```bash
 sudo sysctl net.inet.tcp.tso=0
 ./NetworkFrameworkBug/build-artifacts/swift-build/release/NetworkFrameworkThroughputRepro
