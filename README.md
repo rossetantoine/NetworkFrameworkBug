@@ -90,32 +90,35 @@ Open `Package.swift` in Xcode.
 # Results
 
 ##Test A : Network Framework
+```bash
 Server side: ./NetworkFrameworkThroughputRepro
 Client side:
 admin@iMac ~ % curl http://10.17.18.119:9090/ -o /dev/null
   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
                                  Dload  Upload   Total   Spent    Left  Speed
 100 7682k    0 7682k    0     0  1011k      0 --:--:--  0:00:07 --:--:--  989k
-
+```
 --> 989 kB/s : very low throughput, not saturating the 1 Gbps link (theoretical max ~125 MB/s)
 
 ##Test B : CFStream (legacy framework)
+```bash
 Server side: ./NetworkFrameworkThroughputRepro --legacyFramework
 Client side:
 admin@iMac ~ % curl http://10.17.18.119:9090/ -o /dev/null --legacyframework                                                                               
   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
                                  Dload  Upload   Total   Spent    Left  Speed
 100  905M    0  905M    0     0   103M      0 --:--:--  0:00:08 --:--:--  106M
-
+```
 --> 106 MB/s : much higher throughput, saturating the 1 Gbps link (theoretical max ~125 MB/s)
 
 
 ##Test C : Network Framework with TSO disabled
+```bash
 Server side: sudo sysctl net.inet.tcp.tso=0, then ./NetworkFrameworkThroughputRepro
 Client side:
 admin@iMac ~ % curl http://10.17.18.119:9090/ -o /dev/null
   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
                                  Dload  Upload   Total   Spent    Left  Speed
 100  623M    0  623M    0     0   101M      0 --:--:--  0:00:06 --:--:--  105M
-
+```
 --> 105 MB/s : much higher throughput, saturating the 1 Gbps link (theoretical max ~125 MB/s)
